@@ -57,7 +57,19 @@ extracted item, so referencing a field that does not exist yet fails the render 
 in the Cilium IPAM pool (mosquitto holds `.131`). Check nothing else has it, then put
 the same address in `IMAGE_URL` in `firmware/src/secrets.h`.
 
-**3. Point Twilio at it.** In the console, set the number's incoming-message webhook to
+**3. Confirm the image is pullable anonymously.** The cluster has no
+`imagePullSecrets` anywhere, so it pulls GHCR as a stranger would:
+
+```bash
+docker pull --platform linux/amd64 ghcr.io/markmckessock/photoframe:latest
+```
+
+A public repo publishes a public package, so this works out of the box — but a private
+repo would not, and the failure surfaces as `ImagePullBackOff` rather than as anything
+that mentions permissions. The nodes are amd64 and `ubuntu-latest` runners build amd64,
+so the architectures line up.
+
+**4. Point Twilio at it.** In the console, set the number's incoming-message webhook to
 `https://photoframe.markmckessock.com/mms`, method POST.
 
 ## What is exposed where
