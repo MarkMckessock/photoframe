@@ -1,6 +1,18 @@
+# firmware build output. Anchorless on purpose: `pio run -d firmware` and
+# `cd firmware && pio run` put .pio in different places, and one stray root-level
+# copy is a thousand object files in the commit.
 .pio/
 firmware/src/secrets.h
 firmware/include/pf_version.h
-*.pfrm
-__pycache__/
+
+# python
 .venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.pyflakes*
+
+# generated artefacts
+*.pfrm
+*.epd1
+server/.env

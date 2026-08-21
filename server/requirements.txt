@@ -1,0 +1,10 @@
+flask
+gunicorn
+flask-limiter
+twilio
+requests
+paho-mqtt>=2.0
+pillow
+numpy
+# Optional but worth having: iPhones sometimes deliver HEIC even over MMS.
+pillow-heif

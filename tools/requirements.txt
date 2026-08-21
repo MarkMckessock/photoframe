@@ -1,3 +1,0 @@
-# Host-side tools only. Nothing here runs on the ESP32.
-pillow
-numpy

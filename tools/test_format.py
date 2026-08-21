@@ -13,7 +13,6 @@ updates only one side, this fails.
 """
 
 import binascii
-import io
 import re
 import struct
 import subprocess
