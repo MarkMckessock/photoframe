@@ -1,0 +1,12 @@
+# 16 MB layout. Dual app slots so OTA rollback works -- see net/ota.cpp for why
+# that is not optional on a battery device inside a picture frame on a wall.
+# 4 MB per slot is generous (the binary is ~1.4 MB) but keeps the arithmetic obvious.
+# storage/ holds the cached .pfrm so a low battery or a mid-refresh brownout can be
+# recovered from without erasing the photo that is already on the glass.
+# Name,     Type, SubType,  Offset,   Size,      Flags
+nvs,        data, nvs,      0x9000,   0x5000,
+otadata,    data, ota,      0xE000,   0x2000,
+app0,       app,  ota_0,    0x10000,  0x400000,
+app1,       app,  ota_1,    0x410000, 0x400000,
+storage,    data, littlefs, 0x810000, 0x7E0000,
+coredump,   data, coredump, 0xFF0000, 0x10000,

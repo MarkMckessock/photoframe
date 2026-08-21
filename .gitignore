@@ -1,0 +1,6 @@
+.pio/
+firmware/src/secrets.h
+firmware/include/pf_version.h
+*.pfrm
+__pycache__/
+.venv/
