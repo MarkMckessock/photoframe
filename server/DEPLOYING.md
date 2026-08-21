@@ -22,20 +22,36 @@ A push alone does not redeploy: nothing watches the registry.
 
 ## Before the first apply
 
-**1. Create the 1Password item** named `photoframe-webhook` with these fields, matching
-`app/externalsecret.yaml`:
+**1. Create the 1Password item** named `photoframe-webhook` with three fields:
 
 | Field | Value |
 |---|---|
 | `TWILIO_ACCOUNT_SID` | `AC…` |
 | `TWILIO_AUTH_TOKEN` | from the Twilio console |
 | `TWILIO_WEBHOOK_URL` | `https://photoframe.markmckessock.com/mms` — exact, character for character |
-| `ADMIN_NUMBERS` | your number, `+1…`, comma separated |
-| `ALLOWED_NUMBERS` | leave empty to let anyone who knows the number send a photo |
+
+That is one field more than `splitflap-webhook` needs, and only one. That service just
+*receives* webhooks, so the auth token alone is enough to verify a signature. This one
+fetches the photo back from `api.twilio.com` afterwards, and that request authenticates
+as `AccountSid:AuthToken` — without the SID there is no image.
 
 `TWILIO_WEBHOOK_URL` is the usual first thing to get wrong: the signature is computed
 over that string, so a trailing slash, `http` instead of `https`, or a stale hostname
 makes **every** request 403.
+
+### Optional: an allowlist and SMS admin commands
+
+`ALLOWED_NUMBERS` and `ADMIN_NUMBERS` are read from the environment and both default to
+empty, which means anyone who knows the number can send a photo and nobody can run
+`/status` or `/refresh` by text. That is the same posture `splitflap-webhook` runs in.
+
+If you want either, add the field to the 1Password item **and** the matching line to
+`app/externalsecret.yaml`. Do not put them in the `HelmRelease` as plain env: they are
+phone numbers and `kube-saturn` is a public repo.
+
+Add them in that order, too. `template.data` renders `{{ .ADMIN_NUMBERS }}` against the
+extracted item, so referencing a field that does not exist yet fails the render and the
+**whole Secret** stops syncing — including the Twilio credentials.
 
 **2. Pick a free LoadBalancer address.** `app/helmrelease.yaml` asks for `10.0.70.133`
 in the Cilium IPAM pool (mosquitto holds `.131`). Check nothing else has it, then put
