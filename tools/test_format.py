@@ -144,19 +144,35 @@ def main():
         check(f"{name} -> {want}", got == want, f"got {got}")
 
     print("\nCRC convention")
-    # The firmware computes this with esp_rom_crc32_le, which needs inverting at both
-    # ends to agree with zlib. Model the ROM routine and prove the wrapper is right.
-    def rom(crc, data):
+    # The firmware computes these with esp_rom_crc32_le. That routine inverts
+    # internally at BOTH ends, so it already is zlib's CRC-32 and chains from 0.
+    # Model it faithfully -- an earlier version of this test modelled it as a bare
+    # LFSR, "confirmed" a wrapper that added a second pair of inversions, and the
+    # mismatch only surfaced on hardware as: header crc 0aa0f655 != 60164480.
+    M = 0xFFFFFFFF
+
+    def raw_lfsr(crc, data):
         for byte in data:
             crc ^= byte
             for _ in range(8):
                 crc = (crc >> 1) ^ (0xEDB88320 if crc & 1 else 0)
-        return crc & 0xFFFFFFFF
+        return crc & M
+
+    def esp_rom_crc32_le(init, data):
+        return (~raw_lfsr((~init) & M, data)) & M
+
     sample = blob[HDR_LEN:HDR_LEN + 4096]
-    wrapped = (~rom(~0 & 0xFFFFFFFF, sample)) & 0xFFFFFFFF
-    check("pf_crc32 == zlib.crc32", wrapped == binascii.crc32(sample) & 0xFFFFFFFF)
-    check("raw esp_rom_crc32_le would NOT match (this is why pf_crc32 exists)",
-          rom(0, sample) != binascii.crc32(sample) & 0xFFFFFFFF)
+    check("esp_rom_crc32_le(0, buf) == zlib.crc32(buf)",
+          esp_rom_crc32_le(0, sample) == binascii.crc32(sample) & M)
+
+    a, b = sample[:1000], sample[1000:]
+    chained = esp_rom_crc32_le(esp_rom_crc32_le(0, a), b)
+    check("it chains from 0 across chunks",
+          chained == binascii.crc32(sample) & M)
+
+    check("adding tildes gives the RAW LFSR, not zlib (the trap)",
+          ((~esp_rom_crc32_le((~0) & M, sample)) & M) == raw_lfsr(0, sample)
+          and raw_lfsr(0, sample) != binascii.crc32(sample) & M)
 
     print()
     if failures:
