@@ -30,6 +30,20 @@ bool hex_eq(const uint8_t* digest, const char* hex) {
 
 }  // namespace
 
+// TESTED ON HARDWARE, 2026-08-22: rollback does NOT happen on this board.
+//
+// A deliberately broken build (IMAGE_URL pointing at a black hole, so mark_good() is
+// never reached) was installed and then survived a second wake instead of reverting.
+// CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y appears in the arduino-esp32 sdkconfig, but
+// the prebuilt bootloader that ships with the platform evidently does not act on it,
+// so esp_ota_get_state_partition() never reports PENDING_VERIFY and the functions
+// below are effectively no-ops.
+//
+// They are kept because they are harmless and become correct the moment the platform
+// ships a rollback-capable bootloader. But do NOT rely on this as a safety net: a bad
+// OTA image will stay installed. What actually protects the device is the sha256
+// check before commit, and the installed-sha guard in maybe_update() that stops an
+// update loop. Recovery from a bad image is: publish a good one over MQTT.
 void note_boot() {
   const esp_partition_t* running = esp_ota_get_running_partition();
   esp_ota_img_states_t state;
