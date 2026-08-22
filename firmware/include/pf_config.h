@@ -94,7 +94,7 @@
 // Not a secret, just a string, so it lives here rather than in secrets.h.
 // ---------------------------------------------------------------------------
 #define PF_SETUP_HEADLINE "Send me a photo"
-#define PF_SETUP_DETAIL   "Text an image to +1 555 0100"
+#define PF_SETUP_DETAIL   "Text a photo to (415) 855-3459"
 
 // ---------------------------------------------------------------------------
 // Storage
