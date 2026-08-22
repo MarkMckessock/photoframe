@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pfrm import PANEL_H, PANEL_W, etag_for  # noqa: E402
 from pfrm.palette import DEFAULT_PALETTE, PALETTES  # noqa: E402
 from pfrm.render import HEIF_SUPPORTED, encode, open_image  # noqa: E402
+from server.notify import Notifier  # noqa: E402
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -85,6 +86,10 @@ MQTT_USERNAME = os.environ.get("MQTT_USERNAME") or None
 MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD") or None
 TOPIC_ROOT = os.environ.get("MQTT_TOPIC_ROOT", "home/photoframe")
 
+# Pushover. A single switch (NOTIFY_ENABLED) gates everything; see server/notify.py.
+notifier = Notifier(STORE_DIR, TOPIC_ROOT, MQTT_HOST, MQTT_PORT,
+                    MQTT_USERNAME, MQTT_PASSWORD)
+
 if IMAGE_PALETTE not in PALETTES:
     raise SystemExit(f"IMAGE_PALETTE={IMAGE_PALETTE!r} is not one of {sorted(PALETTES)}")
 
@@ -111,6 +116,19 @@ logger.info("store=%s panel=%dx%d palette=%s crop=%s saturation=%.2f heif=%s",
             IMAGE_SATURATION, HEIF_SUPPORTED)
 logger.info("allowlist=%d admins=%d (0 allowed = open) mqtt=%s",
             len(ALLOWED_NUMBERS), len(ADMIN_NUMBERS), MQTT_HOST or "disabled")
+logger.info("notifications: %s (battery low<%dmV, clear>=%dmV)",
+            "on" if notifier.enabled else "off", notifier.low_mv, notifier.clear_mv)
+
+
+def _describe_current_image():
+    """Who sent the photo currently on the frame, for the notification text."""
+    meta = read_meta()
+    return meta.get("from") if isinstance(meta, dict) else None
+
+
+# Watches the frame's state topic and fires on render / low battery. No-op when the
+# single toggle is off, which is the default.
+notifier.start(_describe_current_image)
 
 
 # --- storage -----------------------------------------------------------------
