@@ -76,6 +76,14 @@ def main():
     ap.add_argument("--broker", default=BROKER)
     args = ap.parse_args()
 
+    # Build FIRST. binary_version() reads pf_version.h, which the build regenerates --
+    # reading it beforehand yields the previous build's version and trips the staleness
+    # guard below with a misleading message.
+    if not args.no_build:
+        print("building...")
+        run([str(PIO), "run", "-d", str(ROOT / "firmware"), "-e", "photoframe"],
+            stdout=subprocess.DEVNULL)
+
     version = args.version or binary_version()
     if not version:
         sys.exit("could not determine a version; pass --version")
@@ -83,11 +91,6 @@ def main():
         sys.exit(f"refusing to publish {version!r}: the working tree was dirty when this\n"
                  f"was built, so the version string is not reproducible. Commit first,\n"
                  f"or pass --allow-dirty if you really mean it.")
-
-    if not args.no_build:
-        print("building...")
-        run([str(PIO), "run", "-d", str(ROOT / "firmware"), "-e", "photoframe"],
-            stdout=subprocess.DEVNULL)
 
     if not BIN.exists():
         sys.exit(f"no firmware binary at {BIN}")
