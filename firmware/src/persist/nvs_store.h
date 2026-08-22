@@ -55,6 +55,14 @@ void set_ota_version(const char* v);
 void get_clear_token(char* out, size_t len);
 void set_clear_token(const char* token);
 
+// sha256 of the last image we installed. Version strings are a claim made by whoever
+// published the update; the hash is what we actually flashed. If an announcement names
+// a hash we have already installed, the update is a no-op no matter what version string
+// it carries -- which is what stops a mislabelled release from looping the device
+// through 1.17 MB reflashes on every wake until the battery dies.
+void get_installed_sha(char* out, size_t len);
+void set_installed_sha(const char* sha);
+
 uint8_t ha_discovery_version();
 void set_ha_discovery_version(uint8_t v);
 

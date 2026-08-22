@@ -19,6 +19,7 @@ constexpr const char* kNightStart   = "night_start";
 constexpr const char* kNightEnd     = "night_end";
 constexpr const char* kOtaVersion   = "ota_version";
 constexpr const char* kHaDiscVer    = "ha_disc_ver";
+constexpr const char* kInstalledSha = "installed_sha";
 constexpr const char* kClearToken   = "clear_token";
 constexpr const char* kSetupCard    = "setup_card";
 constexpr const char* kLowBattCard  = "lowbatt_card";
@@ -93,6 +94,13 @@ void get_clear_token(char* out, size_t len) {
 }
 
 void set_clear_token(const char* token) { g_prefs.putString(kClearToken, token); }
+
+void get_installed_sha(char* out, size_t len) {
+  out[0] = '\0';
+  g_prefs.getString(kInstalledSha, out, len);
+}
+
+void set_installed_sha(const char* sha) { g_prefs.putString(kInstalledSha, sha); }
 
 uint8_t ha_discovery_version() { return g_prefs.getUChar(kHaDiscVer, 0); }
 void set_ha_discovery_version(uint8_t v) { g_prefs.putUChar(kHaDiscVer, v); }

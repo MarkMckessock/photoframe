@@ -11,6 +11,7 @@
 #include "core/logger.h"
 #include "pf_config.h"
 #include "pf_version.h"
+#include "persist/nvs_store.h"
 #include "secrets.h"
 
 namespace pf {
@@ -57,6 +58,17 @@ bool maybe_update(const char* desired_version, const char* url, const char* sha2
     // man-in-the-middled image on a device you can only reach over the air is a
     // problem you cannot fix from the sofa.
     PF_LOGE("ota %s: refusing, sha256 missing or malformed", desired_version);
+    return false;
+  }
+
+  // Content, not claims. If we already flashed this exact image, the announcement is
+  // wrong about our version -- installing it again would change nothing and we would
+  // be right back here on the next wake, forever.
+  char installed[72];
+  nvs::get_installed_sha(installed, sizeof(installed));
+  if (strcasecmp(installed, sha256_hex) == 0) {
+    PF_LOGW("ota %s: already installed this image (sha matches); refusing to loop",
+            desired_version);
     return false;
   }
 
@@ -134,6 +146,7 @@ bool maybe_update(const char* desired_version, const char* url, const char* sha2
     return false;
   }
 
+  nvs::set_installed_sha(sha256_hex);
   PF_LOGI("ota: installed %s, rebooting", desired_version);
   delay(100);
   ESP.restart();
