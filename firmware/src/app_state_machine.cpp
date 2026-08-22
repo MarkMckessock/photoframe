@@ -344,12 +344,24 @@ bool render_from_cache(const char* result_label, const char* etag) {
       PF_LOGI("fetched image matches what is on the panel; not refreshing");
       ctx.result = "no_change";
     } else {
-      if (cache::begin()) cache::save(g_img.raw(), g_img.received());
+      // Extend the deadline BEFORE the cache write, not after. Writing 960 KB to
+      // LittleFS is the slowest step outside the refresh itself, and leaving it
+      // inside the 45 s base budget means a slow flash write trips the watchdog --
+      // which sleeps immediately, so the photo is never drawn AND no state is
+      // published. That failure is silent from the outside, which is how it went
+      // unnoticed: the only symptom is a button press that appears to do nothing.
+      pf::extend_panic_sleep(PF_AWAKE_BUDGET_RENDER_MS);
+
+      if (cache::begin()) {
+        const uint32_t t0 = millis();
+        if (cache::save(g_img.raw(), g_img.received())) {
+          PF_LOGI("cache write took %lums", (unsigned long)(millis() - t0));
+        }
+      }
 
       // Radio off for the refresh. Thirty seconds of transmitter idle current is
       // worth more than the ~1 s it costs to reconnect afterwards on the fast path.
       net::wifi::disconnect();
-      pf::extend_panic_sleep(PF_AWAKE_BUDGET_RENDER_MS);
       setCpuFrequencyMhz(80);
 
       nvs::set_render_etag(ctx.etag);
