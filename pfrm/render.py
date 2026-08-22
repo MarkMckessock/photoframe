@@ -26,11 +26,36 @@ except Exception:  # pragma: no cover - depends on the environment
     HEIF_SUPPORTED = False
 
 
+# The one white in this pipeline. Transparent pixels and aspect-ratio padding both
+# resolve to it, so a logo with a transparent background sits flush against its own
+# letterbox bars with no visible seam.
+PAPER = (255, 255, 255)
+
+
 def open_image(data):
-    """Decode bytes into an RGB image, with orientation already applied."""
+    """Decode bytes into an RGB image, with orientation applied and alpha flattened."""
     img = Image.open(io.BytesIO(data))
     img.load()
-    return ImageOps.exif_transpose(img).convert("RGB")
+    img = ImageOps.exif_transpose(img)
+
+    return flatten_alpha(img).convert("RGB")
+
+
+def flatten_alpha(img):
+    """Composite any transparency onto PAPER. No-op for images without an alpha channel.
+
+    Must be applied on every path into the pipeline, not just when decoding bytes:
+    letting .convert("RGB") drop the alpha instead exposes whatever RGB the encoder
+    left under the transparent pixels, which is very often zeros -- turning a sticker
+    or logo into a full-bleed black rectangle. On a paper-white panel that is both
+    wrong and about the most expensive thing a six-colour e-ink display can be asked
+    to draw.
+    """
+    has_alpha = img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info)
+    if not has_alpha:
+        return img
+    img = img.convert("RGBA")
+    return Image.alpha_composite(Image.new("RGBA", img.size, PAPER + (255,)), img)
 
 
 def _palette_image(entries):
@@ -51,14 +76,16 @@ def _palette_image(entries):
 
 
 def prepare(img, width=PANEL_W, height=PANEL_H, crop=False, saturation=1.4, contrast=1.0):
-    img = img.convert("RGB")
+    # encode() accepts a PIL Image as well as bytes, and that path skips open_image().
+    # Flattening here too means no caller can route around it.
+    img = flatten_alpha(img).convert("RGB")
     if crop:
         img = ImageOps.fit(img, (width, height), method=Image.LANCZOS, centering=(0.5, 0.5))
     else:
         # Letterbox onto white. For the group photos this thing will mostly show, that
         # beats cropping somebody out of frame, and white bars vanish against the
         # panel's own white border.
-        img = ImageOps.pad(img, (width, height), method=Image.LANCZOS, color=(255, 255, 255))
+        img = ImageOps.pad(img, (width, height), method=Image.LANCZOS, color=PAPER)
     if contrast != 1.0:
         img = ImageEnhance.Contrast(img).enhance(contrast)
     if saturation != 1.0:
