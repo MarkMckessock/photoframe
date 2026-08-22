@@ -188,6 +188,9 @@ bool publish_state(const StateDoc& s) {
   JsonDocument doc;
   doc["fw"] = PF_VERSION;
   doc["git"] = PF_GIT_SHA;
+  // When this wake happened. rendered_at only moves on an actual render, so it cannot
+  // date a no-change wake -- which is most of them.
+  doc["ts"] = now_epoch();
   doc["wake_cause"] = s.wake_cause;
   doc["wake_count"] = s.wake_count;
   doc["total_renders"] = s.total_renders;

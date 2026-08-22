@@ -65,6 +65,13 @@
 // The backstop. A wedged network stack should cost one wake cycle, not a battery.
 #define PF_AWAKE_BUDGET_MS       45000
 #define PF_AWAKE_BUDGET_RENDER_MS 120000
+// OTA needs its own budget, and a generous one: it streams ~1.2 MB into the inactive
+// flash partition and then hashes it, all AFTER the wake has already spent time on
+// WiFi, the image fetch, possibly a 30 s render, and the MQTT round trip. Running it
+// under whatever is left of the base budget means the watchdog kills it mid-download --
+// which sleeps immediately, so the update silently never happens and nothing is
+// reported. The only visible symptom is repeated firmware.bin fetches in the server log.
+#define PF_AWAKE_BUDGET_OTA_MS   180000
 
 #define PF_BUTTON_SETTLE_MS         60   // released faster than this == a bump
 #define PF_BUTTON_LONG_MS         5000

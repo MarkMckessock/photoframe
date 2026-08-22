@@ -395,7 +395,15 @@ bool render_from_cache(const char* result_label, const char* etag) {
 
     const auto& ota = net::mqtt::ota_request();
     if (ota.valid && ctx.battery_mv >= PF_BATT_MV_OTA_OK && net::wifi::rssi() > -75) {
+      // Fresh budget: this is the last thing a wake does, so by now the base deadline
+      // may be nearly spent, and the download plus hash is the longest single
+      // operation in the firmware after the panel refresh itself.
+      pf::extend_panic_sleep(PF_AWAKE_BUDGET_OTA_MS);
       net::ota::maybe_update(ota.version, ota.url, ota.sha256);  // reboots on success
+      // Not reached on success. If it returns, the update was declined or failed, and
+      // the remaining wake is short -- put the normal ceiling back so a wedged
+      // publish cannot hold the device awake for three minutes.
+      pf::extend_panic_sleep(PF_AWAKE_BUDGET_MS);
     }
   } else if (ctx.error == PF_ERR_NONE) {
     note_failure(PF_ERR_MQTT);
