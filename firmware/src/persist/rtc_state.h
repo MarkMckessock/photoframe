@@ -57,6 +57,13 @@ struct RtcState {
   uint8_t  last_error;          // PfError
   uint16_t last_battery_mv;
 
+  // A watchdog trip cannot report itself: on_panic() sleeps immediately, so the wake
+  // ends with nothing published and looks from the outside exactly like a button that
+  // was ignored. Stash it here instead and report it on the next wake. Every confusing
+  // silence during bring-up was this, and each one cost far more than the two fields.
+  uint8_t  pending_error;       // PfError from the wake that died
+  uint32_t pending_awake_ms;    // how long it had been awake when the deadline fired
+
   // WiFi fast-connect cache.
   bool     wifi_valid;
   uint8_t  bssid[6];

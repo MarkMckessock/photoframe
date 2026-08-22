@@ -209,6 +209,10 @@ bool publish_state(const StateDoc& s) {
   doc["panel"] = s.panel;
   doc["consecutive_failures"] = s.consecutive_failures;
   if (s.error) doc["error"] = s.error; else doc["error"] = nullptr;
+  if (s.prev_error) {
+    doc["prev_error"] = s.prev_error;
+    doc["prev_awake_ms"] = s.prev_awake_ms;
+  }
   doc["free_psram"] = (uint32_t)ESP.getFreePsram();
 
   char buf[640];

@@ -31,6 +31,8 @@ struct StateDoc {
   const char* wake_cause;
   const char* result;      // no_change | rendered | rendered_from_cache | ...
   const char* error;       // nullptr when fine
+  const char* prev_error;  // why the PREVIOUS wake died without reporting, if it did
+  uint32_t prev_awake_ms;
   const char* etag;
   const char* deferred_etag;  // a photo held back by low battery, or empty
   const char* panel;       // "clean" | "dirty"

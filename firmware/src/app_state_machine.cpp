@@ -40,6 +40,8 @@ struct Ctx {
   const char* result = "no_change";
   PfError error = PF_ERR_NONE;
   uint32_t render_ms = 0;
+  const char* prev_error = nullptr;   // why the previous wake died silently, if it did
+  uint32_t prev_awake_ms = 0;
   bool panel_dirty = false;
   bool rendered = false;
   char etag[PF_ETAG_MAX] = "";
@@ -66,6 +68,8 @@ uint32_t choose_interval() {
     s.wake_cause = sleep::name(ctx.wake);
     s.result = ctx.result;
     s.error = error_name(ctx.error);
+    s.prev_error = ctx.prev_error;
+    s.prev_awake_ms = ctx.prev_awake_ms;
     s.etag = rtc.rendered_etag;
     s.deferred_etag = rtc.deferred_etag;
     s.panel = ctx.panel_dirty ? "dirty" : "clean";
@@ -98,6 +102,10 @@ uint32_t choose_interval() {
 void on_panic() {
   rtc.consecutive_failures++;
   rtc.last_error = PF_ERR_WATCHDOG;
+  // Cannot publish from here -- the network stack is whatever it was and we are about
+  // to sleep. Leave a note for the next wake instead.
+  rtc.pending_error = PF_ERR_WATCHDOG;
+  rtc.pending_awake_ms = millis();
   renderer::power_down();
   sleep::sleep_now(PF_POLL_LOW_BATT_S);
 }
@@ -174,6 +182,17 @@ bool render_from_cache(const char* result_label, const char* etag) {
     rtc.total_renders = 0;
   }
   rtc.wake_count++;
+
+  // Pick up any note the previous wake left before it was killed, and clear it so it
+  // is reported exactly once.
+  if (rtc.pending_error != PF_ERR_NONE) {
+    ctx.prev_error = error_name((PfError)rtc.pending_error);
+    ctx.prev_awake_ms = rtc.pending_awake_ms;
+    PF_LOGW("previous wake died silently: %s after %lums", ctx.prev_error,
+            (unsigned long)ctx.prev_awake_ms);
+    rtc.pending_error = PF_ERR_NONE;
+    rtc.pending_awake_ms = 0;
+  }
 
   ctx.wake = sleep::classify();
   PF_LOGI("wake #%lu cause=%s fw=%s free_psram=%u", (unsigned long)rtc.wake_count,
