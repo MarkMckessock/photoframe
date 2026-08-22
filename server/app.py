@@ -89,6 +89,12 @@ if IMAGE_PALETTE not in PALETTES:
     raise SystemExit(f"IMAGE_PALETTE={IMAGE_PALETTE!r} is not one of {sorted(PALETTES)}")
 
 BLOB_PATH = STORE_DIR / "latest.pfrm"
+# Firmware images for over-the-air updates. Deliberately no upload endpoint: this
+# service has a public route, and an unauthenticated write path that lands executable
+# code on a device would be an appalling thing to expose. Images are placed here out of
+# band by tools/publish_firmware.py via `kubectl cp`.
+FIRMWARE_PATH = STORE_DIR / "firmware.bin"
+FIRMWARE_META_PATH = STORE_DIR / "firmware.json"
 PREVIEW_PATH = STORE_DIR / "latest.png"
 META_PATH = STORE_DIR / "latest.json"
 
@@ -157,6 +163,15 @@ def read_blob():
         _etag_cache.clear()
         _etag_cache[key] = etag
     return data, etag
+
+
+def read_firmware_meta():
+    try:
+        meta = json.loads(FIRMWARE_META_PATH.read_text())
+        meta["bytes"] = FIRMWARE_PATH.stat().st_size
+        return meta
+    except (OSError, ValueError):
+        return None
 
 
 def read_meta():
@@ -390,6 +405,32 @@ def latest_pfrm():
                              "Cache-Control": "no-cache"})
 
 
+@app.route("/firmware.bin", methods=["GET"])
+def firmware_bin():
+    """OTA image for the frame. LAN-only, same as the photo endpoints.
+
+    Content-Length matters: the firmware sizes its flash write from it and refuses a
+    response without one, because a truncated image that still gets committed is the
+    one failure mode OTA must never have.
+    """
+    try:
+        data = FIRMWARE_PATH.read_bytes()
+    except OSError:
+        return Response("no firmware published", status=404, mimetype="text/plain")
+    return Response(data, mimetype="application/octet-stream",
+                    headers={"Content-Length": str(len(data)),
+                             "Cache-Control": "no-cache"})
+
+
+@app.route("/firmware.json", methods=["GET"])
+def firmware_json():
+    """Version and sha256 of the published image, for humans and for scripts."""
+    try:
+        return Response(FIRMWARE_META_PATH.read_bytes(), mimetype="application/json")
+    except OSError:
+        return jsonify({})
+
+
 @app.route("/latest.png", methods=["GET"])
 def latest_png():
     """What the panel will actually show, for humans. Same LAN-only Service."""
@@ -409,6 +450,7 @@ def status():
         "etag": etag,
         "image": meta,
         "panel": {"width": PANEL_WIDTH, "height": PANEL_HEIGHT},
+        "firmware": read_firmware_meta(),
         "frame": _frame_state(),
     })
 

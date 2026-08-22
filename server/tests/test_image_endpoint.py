@@ -86,3 +86,50 @@ def test_etag_changes_for_a_different_photo(client, srv_mod, photo_bytes):
 
 def test_healthz(client):
     assert client.get("/healthz").status_code == 200
+
+
+# --- firmware / OTA endpoints -------------------------------------------------
+
+def test_firmware_404_when_none_published(client):
+    assert client.get("/firmware.bin").status_code == 404
+
+
+def test_firmware_served_with_content_length(client, srv_mod):
+    """The firmware sizes its flash write from Content-Length and refuses without one.
+
+    A truncated image that still gets committed is the single failure mode OTA must
+    never have, so this header is load-bearing rather than cosmetic.
+    """
+    blob = bytes(range(256)) * 40
+    srv_mod.STORE_DIR.mkdir(parents=True, exist_ok=True)
+    srv_mod.FIRMWARE_PATH.write_bytes(blob)
+
+    r = client.get("/firmware.bin")
+    assert r.status_code == 200
+    assert r.data == blob
+    assert int(r.headers["Content-Length"]) == len(blob)
+
+
+def test_firmware_metadata_round_trips(client, srv_mod):
+    import hashlib
+    import json
+    blob = b"\xde\xad\xbe\xef" * 100
+    srv_mod.STORE_DIR.mkdir(parents=True, exist_ok=True)
+    srv_mod.FIRMWARE_PATH.write_bytes(blob)
+    srv_mod.FIRMWARE_META_PATH.write_text(json.dumps(
+        {"version": "1.2.3", "sha256": hashlib.sha256(blob).hexdigest()}))
+
+    meta = client.get("/firmware.json").get_json()
+    assert meta["version"] == "1.2.3"
+    assert meta["sha256"] == hashlib.sha256(blob).hexdigest()
+
+    # and it shows up in /status alongside the image
+    assert client.get("/status").get_json()["firmware"]["version"] == "1.2.3"
+
+
+def test_no_upload_endpoint_exists(client, srv_mod):
+    """There must be no write path for firmware: this service has a public route."""
+    for method in ("POST", "PUT"):
+        for path in ("/firmware.bin", "/firmware", "/firmware.json"):
+            code = client.open(path, method=method).status_code
+            assert code in (404, 405), f"{method} {path} returned {code}"

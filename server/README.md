@@ -9,7 +9,9 @@ Twilio MMS in, panel-native blob out.
 | `/mms` | POST | **public** | Twilio webhook. Rejects anything without a valid `X-Twilio-Signature`. |
 | `/latest.pfrm` | GET | LAN only | What the frame polls. `ETag` + `Content-Length`, honours `If-None-Match`. |
 | `/latest.png` | GET | LAN only | Preview of exactly what the panel will show. |
-| `/status` | GET | LAN only | JSON: current image metadata plus the frame's last retained MQTT state. |
+| `/firmware.bin` | GET | LAN only | OTA image for the frame. `Content-Length` is load-bearing. |
+| `/firmware.json` | GET | LAN only | Version + sha256 of the published image. |
+| `/status` | GET | LAN only | JSON: current image metadata, published firmware, and the frame's last retained MQTT state. |
 | `/healthz` | GET | LAN only | Probe target. |
 
 The exposure column is enforced by routing, not by the app — both Services point at the
@@ -60,3 +62,25 @@ photo produces.
 - **Twilio media is deleted after download** (`DELETE_TWILIO_MEDIA=true`). We already
   have the only copy we need, and friends' photos should not sit on a third party's
   servers indefinitely.
+
+
+## Shipping firmware over the air
+
+```bash
+python tools/publish_firmware.py            # build, ship, announce
+python tools/publish_firmware.py --dry-run  # show what it would do
+```
+
+It builds, computes the sha256, copies the image into the pod's volume with an atomic
+rename, and publishes a retained `cmd/ota` doc. The frame reads that on its next wake,
+fetches into the inactive OTA slot, verifies the hash **before** committing, and reboots.
+
+There is **no upload endpoint**, on purpose. This service has a public route, and an
+unauthenticated write path that lands executable code on a device is not something to
+expose to the internet. Publishing goes through `kubectl cp`, which already requires
+cluster credentials.
+
+If the new image cannot complete a full wake — WiFi, fetch, MQTT publish — it is never
+marked valid and the bootloader rolls back to the previous slot automatically. That is
+what makes over-the-air updates safe on a device you would otherwise have to take off
+a wall and open up.
