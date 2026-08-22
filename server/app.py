@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pfrm import PANEL_H, PANEL_W, etag_for  # noqa: E402
 from pfrm.palette import DEFAULT_PALETTE, PALETTES  # noqa: E402
 from pfrm.render import HEIF_SUPPORTED, encode, open_image  # noqa: E402
+from server.contacts import display_name  # noqa: E402
 from server.notify import Notifier  # noqa: E402
 
 logging.basicConfig(level=logging.INFO,
@@ -116,14 +117,21 @@ logger.info("store=%s panel=%dx%d palette=%s crop=%s saturation=%.2f heif=%s",
             IMAGE_SATURATION, HEIF_SUPPORTED)
 logger.info("allowlist=%d admins=%d (0 allowed = open) mqtt=%s",
             len(ALLOWED_NUMBERS), len(ADMIN_NUMBERS), MQTT_HOST or "disabled")
+from server.contacts import load as _load_contacts  # noqa: E402
+logger.info("contacts: %d name(s) configured", len(_load_contacts()))
 logger.info("notifications: %s (battery low<%dmV, clear>=%dmV)",
             "on" if notifier.enabled else "off", notifier.low_mv, notifier.clear_mv)
 
 
 def _describe_current_image():
-    """Who sent the photo currently on the frame, for the notification text."""
+    """Who sent the photo currently on the frame, for the notification text.
+
+    Resolved through CONTACTS, so an unknown sender shows as a masked number rather
+    than a full one on a lock screen.
+    """
     meta = read_meta()
-    return meta.get("from") if isinstance(meta, dict) else None
+    number = meta.get("from") if isinstance(meta, dict) else None
+    return display_name(number) if number else None
 
 
 # Watches the frame's state topic and fires on render / low battery. No-op when the
@@ -307,7 +315,7 @@ def handle_command(body, sender):
     if cmd in ("/help", "help"):
         return HELP
     if sender not in ADMIN_NUMBERS:
-        logger.warning("command %r from non-admin %s ignored", cmd, sender)
+        logger.warning("command %r from non-admin %s ignored", cmd, display_name(sender))
         return None
     if cmd == "/status":
         raw = mqtt_get_retained(f"{TOPIC_ROOT}/state")
@@ -339,7 +347,11 @@ def mms():
     sender = request.form.get("From", "unknown")
     body = request.form.get("Body", "") or ""
     num_media = int(request.form.get("NumMedia", 0) or 0)
-    logger.info("message from=%s media=%d body=%r", sender, num_media, body[:80])
+    # Masked: cluster logs get shipped, searched and pasted into issues. The full
+    # number is still in the stored metadata on the LAN-only volume if it is ever
+    # genuinely needed.
+    logger.info("message from=%s media=%d body=%r", display_name(sender), num_media,
+                body[:80])
 
     reply = MessagingResponse()
 
@@ -355,7 +367,7 @@ def mms():
     media_url = request.form.get("MediaUrl0")
     content_type = (request.form.get("MediaContentType0") or "").lower()
     if content_type not in ACCEPTED_TYPES:
-        logger.warning("unsupported media type %r from %s", content_type, sender)
+        logger.warning("unsupported media type %r from %s", content_type, display_name(sender))
         reply.message(f"I can't read {content_type or 'that'} - try a normal photo.")
         return str(reply)
 
@@ -374,7 +386,7 @@ def mms():
                                contrast=IMAGE_CONTRAST, palette=IMAGE_PALETTE,
                                want_preview=True)
     except Exception:
-        logger.exception("could not render image from %s", sender)
+        logger.exception("could not render image from %s", display_name(sender))
         reply.message("I couldn't make sense of that image, sorry.")
         return str(reply)
 
@@ -392,7 +404,7 @@ def mms():
     }
     store_image(blob, buf.getvalue(), meta)
     logger.info("stored %d bytes etag=%s from=%s source=%dx%d", len(blob), meta["etag"],
-                sender, img.size[0], img.size[1])
+                display_name(sender), img.size[0], img.size[1])
 
     if DELETE_TWILIO_MEDIA:
         delete_media(media_url)
