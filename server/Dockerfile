@@ -14,7 +14,11 @@ COPY server/requirements.txt ./server/requirements.txt
 RUN pip install --no-cache-dir -r server/requirements.txt
 
 COPY pfrm/ ./pfrm/
-COPY server/__init__.py server/app.py ./server/
+# Glob, not a hand-maintained list. Naming files individually meant adding a new
+# module (notify.py) shipped an image that crashed on import -- and the failure only
+# appeared in the cluster, because everything works locally where the file exists.
+# */*.py skips tests/, which stays out of the image.
+COPY server/*.py ./server/
 
 EXPOSE 5000
 

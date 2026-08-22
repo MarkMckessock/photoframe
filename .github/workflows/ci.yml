@@ -23,6 +23,31 @@ jobs:
         # header, so the two sides cannot drift apart unnoticed.
         run: python tools/test_format.py
 
+  image:
+    name: container smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -f server/Dockerfile -t photoframe:ci .
+      - name: It must actually import and serve
+        # The unit tests all pass on a checkout where every file exists. They cannot
+        # catch a packaging mistake -- a module missing from the image crashes only in
+        # the cluster, on startup, after a deploy. Importing the app inside the built
+        # image is the cheapest way to close that gap.
+        run: |
+          docker run --rm \
+            -e TWILIO_ACCOUNT_SID=ACtest -e TWILIO_AUTH_TOKEN=test \
+            -e TWILIO_WEBHOOK_URL=http://localhost/mms \
+            -e STORE_DIR=/tmp/pf -e MQTT_HOST= \
+            --entrypoint python photoframe:ci -c '
+          from server.app import app
+          c = app.test_client()
+          assert c.get("/healthz").status_code == 200
+          assert c.get("/latest.pfrm").status_code == 404
+          assert c.get("/firmware.json").status_code == 200
+          print("image imports and serves")'
+
   firmware:
     name: firmware build
     runs-on: ubuntu-latest
