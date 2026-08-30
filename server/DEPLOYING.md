@@ -69,7 +69,24 @@ repo would not, and the failure surfaces as `ImagePullBackOff` rather than as an
 that mentions permissions. The nodes are amd64 and `ubuntu-latest` runners build amd64,
 so the architectures line up.
 
-**4. Point Twilio at it.** In the console, set the number's incoming-message webhook to
+**4. Make sure the archive directory exists on the NAS.** The HelmRelease mounts
+
+```
+granite.markmckessock.com:/volume1/Users/mmckessock/Pictures/Picture Frame Uploads
+```
+
+An NFS volume whose path does not exist on the server does not degrade gracefully — the
+kubelet cannot mount it and the pod sits in `ContainerCreating` indefinitely, so the
+**whole service** fails to start, not just the archive. Create the directory first, and
+make it writable by UID 1000: `fsGroup` has no effect on NFS volumes, so the NAS's own
+permissions are what decide.
+
+Note the path contains spaces. It is quoted in `helmrelease.yaml` and must stay quoted.
+
+Because this directory sits inside `/volume1/Users/mmckessock/Pictures`, which immich
+already scans read-only, archived photos turn up in the library automatically.
+
+**5. Point Twilio at it.** In the console, set the number's incoming-message webhook to
 `https://photoframe.markmckessock.com/mms`, method POST.
 
 ## What is exposed where

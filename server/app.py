@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pfrm import PANEL_H, PANEL_W, etag_for  # noqa: E402
 from pfrm.palette import DEFAULT_PALETTE, PALETTES  # noqa: E402
 from pfrm.render import HEIF_SUPPORTED, encode, open_image  # noqa: E402
+from server.archive import Archive  # noqa: E402
 from server.contacts import display_name  # noqa: E402
 from server.notify import Notifier  # noqa: E402
 
@@ -81,11 +82,20 @@ MEDIA_TIMEOUT_S = float(os.environ.get("MEDIA_TIMEOUT_S", 20))
 # only copy we need.
 DELETE_TWILIO_MEDIA = _env_bool("DELETE_TWILIO_MEDIA", True)
 
+# Original photos are kept on an NFS mount of the NAS, inside the directory the
+# photo library already scans. The SQLite index deliberately lives somewhere else --
+# see server/archive.py for why it must not sit on the NFS share. Setting ARCHIVE_DIR
+# is what turns the whole feature on.
+ARCHIVE_DIR = os.environ.get("ARCHIVE_DIR", "")
+ARCHIVE_DB = os.environ.get("ARCHIVE_DB", "/db/photos.db")
+
 MQTT_HOST = os.environ.get("MQTT_HOST", "")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", 1883))
 MQTT_USERNAME = os.environ.get("MQTT_USERNAME") or None
 MQTT_PASSWORD = os.environ.get("MQTT_PASSWORD") or None
 TOPIC_ROOT = os.environ.get("MQTT_TOPIC_ROOT", "home/photoframe")
+
+archive = Archive(ARCHIVE_DIR, ARCHIVE_DB)
 
 # Pushover. A single switch (NOTIFY_ENABLED) gates everything; see server/notify.py.
 notifier = Notifier(STORE_DIR, TOPIC_ROOT, MQTT_HOST, MQTT_PORT,
@@ -119,6 +129,7 @@ logger.info("allowlist=%d admins=%d (0 allowed = open) mqtt=%s",
             len(ALLOWED_NUMBERS), len(ADMIN_NUMBERS), MQTT_HOST or "disabled")
 from server.contacts import load as _load_contacts  # noqa: E402
 logger.info("contacts: %d name(s) configured", len(_load_contacts()))
+logger.info("archive: %s", f"{ARCHIVE_DIR} (db {ARCHIVE_DB})" if archive.enabled else "off")
 logger.info("notifications: %s (battery low<%dmV, clear>=%dmV)",
             "on" if notifier.enabled else "off", notifier.low_mv, notifier.clear_mv)
 
@@ -377,6 +388,13 @@ def mms():
         reply.message("I couldn't download that - mind trying again?")
         return str(reply)
 
+    # Keep the untouched original before the render pipeline destroys it. Done here
+    # rather than after rendering so that an image we fail to render is still kept --
+    # those are exactly the ones worth having a copy of. Best-effort by construction:
+    # a NAS that is down or full must not stop a photo reaching the frame.
+    received_at = int(time.time())
+    archive_id = archive.save(raw, sender, content_type, body, received_at)
+
     try:
         img = open_image(raw)
         short_edge = min(img.size)
@@ -395,7 +413,7 @@ def mms():
     meta = {
         "etag": etag_for(blob),
         "bytes": len(blob),
-        "received_at": int(time.time()),
+        "received_at": received_at,
         "from": sender,
         "caption": body[:200],
         "source_size": list(img.size),
@@ -404,6 +422,8 @@ def mms():
     store_image(blob, buf.getvalue(), meta)
     logger.info("stored %d bytes etag=%s from=%s source=%dx%d", len(blob), meta["etag"],
                 sender, img.size[0], img.size[1])
+
+    archive.record_render(archive_id, meta["etag"], img.size)
 
     if DELETE_TWILIO_MEDIA:
         delete_media(media_url)
@@ -480,6 +500,7 @@ def status():
         "image": meta,
         "panel": {"width": PANEL_WIDTH, "height": PANEL_HEIGHT},
         "firmware": read_firmware_meta(),
+        "archive": archive.stats(),
         "frame": _frame_state(),
     })
 
@@ -492,6 +513,20 @@ def _frame_state():
         return json.loads(raw)
     except ValueError:
         return None
+
+
+@app.route("/archive", methods=["GET"])
+def archive_index():
+    """Recent photos and who sent them. LAN-only, same as the image endpoints.
+
+    This returns full sender numbers, which is the point -- it is how you work out who
+    to add to CONTACTS -- and is also exactly why it must never be routed publicly.
+    """
+    try:
+        limit = max(1, min(int(request.args.get("limit", 20)), 500))
+    except ValueError:
+        limit = 20
+    return jsonify({"photos": archive.recent(limit), **archive.stats()})
 
 
 @app.route("/healthz", methods=["GET"])

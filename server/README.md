@@ -12,6 +12,7 @@ Twilio MMS in, panel-native blob out.
 | `/firmware.bin` | GET | LAN only | OTA image for the frame. `Content-Length` is load-bearing. |
 | `/firmware.json` | GET | LAN only | Version + sha256 of the published image. |
 | `/status` | GET | LAN only | JSON: current image metadata, published firmware, and the frame's last retained MQTT state. |
+| `/archive` | GET | LAN only | JSON: recent photos received, with sender numbers. |
 | `/healthz` | GET | LAN only | Probe target. |
 
 The exposure column is enforced by routing, not by the app — both Services point at the
@@ -80,7 +81,33 @@ unauthenticated write path that lands executable code on a device is not somethi
 expose to the internet. Publishing goes through `kubectl cp`, which already requires
 cluster credentials.
 
-If the new image cannot complete a full wake — WiFi, fetch, MQTT publish — it is never
-marked valid and the bootloader rolls back to the previous slot automatically. That is
-what makes over-the-air updates safe on a device you would otherwise have to take off
-a wall and open up.
+The firmware marks an image valid only after completing a full wake — WiFi, fetch,
+MQTT publish. **On this board nothing acts on that**: rollback was tested and does not
+happen, so an image that boots but cannot reach the network has to be recovered over
+USB. Test network-facing changes on a cable before publishing them. See
+[`../docs/HARDWARE.md`](../docs/HARDWARE.md).
+
+## Keeping the originals
+
+The panel blob is lossy and irreversible, so every photo received is written untouched
+to `ARCHIVE_DIR` — an NFS mount of the NAS, inside the directory the photo library
+already scans — and indexed in SQLite at `ARCHIVE_DB`.
+
+Setting `ARCHIVE_DIR` is the single switch that turns this on; unset, everything no-ops.
+
+The index records when each photo arrived, who sent it, and its path within the mount,
+plus the `ETag` of the blob rendered from it, which is what links an archived original
+to whatever the frame reports it is currently displaying.
+
+Three decisions worth not undoing, all explained in [`archive.py`](archive.py):
+
+- **The index is not on the NFS share.** SQLite locking uses POSIX advisory locks, which
+  NFS implements unreliably. It gets its own small PVC.
+- **The original is written before rendering**, so an image that fails to render is
+  still kept — those are the ones most worth having.
+- **Archiving never fails a request.** Every path swallows and logs. The frame is the
+  product; the archive is the bonus.
+
+Filenames are `<UTC timestamp>-<sha256 prefix>.<ext>` and deliberately contain **no
+phone number** — these land in a photo library that gets browsed and shared. The sender
+lives in the index instead, which is also why `/archive` is LAN-only.

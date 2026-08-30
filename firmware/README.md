@@ -185,7 +185,10 @@ that decide whether this project works can only be measured.
 8 MB PSRAM and 16 MB flash. If either is wrong, stop: the 960 KB framebuffer is
 `ps_calloc`'d at static-init time and fails silently without octal PSRAM.
 
-**1 — panel.** The bring-up firmware draws six labelled colour bars plus `LEFT` /
+**1 — panel.** *(Done — the nibble table and the geometry in this file are confirmed
+correct on hardware. Kept here because it is still the right first step on a new board.)*
+
+The bring-up firmware draws six labelled colour bars plus `LEFT` /
 `RIGHT` / `TOP` / `BOTTOM` markers and four coloured corner squares. Photograph it.
 
 This settles the two things the sources disagree about: which nibble produces which
@@ -242,10 +245,12 @@ Expect `200` → render on the first wake, `304` → straight back to sleep on t
 ../tools/serve_test.py blob --stall 20          # mid-body stall
 ```
 Also drop a bench supply to 3.0 V during a refresh: the next boot must find
-`render_busy` set and recover the panel from the cache. And ship one deliberately broken
-build to prove OTA rollback works (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE` is on in this
-Arduino build, and a deep-sleep wake counts as a boot, so an unconfirmed image is rolled
-back at the next wake unless it completes a fetch).
+`render_busy` set and recover the panel from the cache.
+
+**The rollback test was run, and it failed.** A deliberately broken build survived a
+second wake and was never rolled back: `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y` is in
+the sdkconfig, but the prebuilt arduino-esp32 bootloader does not act on it. Do not
+rely on rollback. Full detail and consequences in [`../docs/HARDWARE.md`](../docs/HARDWARE.md).
 
 **7 — end to end.** Deploy the webhook, point a Twilio MMS number at it, text a photo.
 
@@ -280,8 +285,9 @@ blob by hand and serve it from a laptop without any of the cluster being involve
 
 Ordered by how much they can hurt:
 
-1. **Deep-sleep current** (stage 2). Dominates everything.
-2. **Dual-controller geometry** (stage 1). Determines the server's packing.
+1. **Deep-sleep current** (stage 2). Dominates everything, and is **still unmeasured**.
+2. ~~Dual-controller geometry~~ — **settled on hardware.** The panel behaves exactly as
+   Seeed_GFX models it; the palette and geometry in this file need no correction.
 3. **Panel refresh current.** Only matters at high photo volume, but it sets the
    low-battery gate.
 4. **Battery ADC.** `pf_config.h` carries GPIO1 + an enable on GPIO6 and an empirical

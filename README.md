@@ -20,6 +20,7 @@ shows up. Runs for months on a battery.
 | [`server/`](server/) | The Flask service: Twilio webhook, image pipeline, image endpoint. |
 | [`pfrm/`](pfrm/) | The shared image format and rendering pipeline. Imported by both the server and the CLI tools. |
 | [`tools/`](tools/) | Offline encoder, a test HTTP server with fault injection, and the wire-format conformance test. |
+| [`docs/`](docs/) | [Operations](docs/OPERATIONS.md) — the runbook. [Hardware](docs/HARDWARE.md) — what bring-up actually found. [Traps](docs/TRAPS.md) — things that look like bugs and are not. |
 
 Deployment manifests are **not** here — they live in the `kube-saturn` repo alongside
 every other cluster app. See [`server/DEPLOYING.md`](server/DEPLOYING.md).
@@ -88,9 +89,30 @@ from it. `serve_test.py` can also truncate, corrupt, stall or 500 the response o
 demand, which is how the firmware's failure paths get exercised without waiting for a
 real network to misbehave.
 
+## Every photo is kept
+
+The render pipeline destroys the original — resized, saturated, dithered to six colours,
+packed to 4 bpp, none of it reversible. So before any of that happens, the untouched
+original is written to an NFS mount of the NAS, inside the directory the photo library
+already scans, and indexed in SQLite: when it arrived, who sent it, and where it landed.
+
+Archiving is best-effort by construction. A NAS that is down or full must not stop a
+photo reaching the frame — the frame is the product; the archive is the bonus. See
+[`server/archive.py`](server/archive.py).
+
 ## Status
 
-Firmware and server are written and tested; the firmware has **not** run on hardware
-yet. `firmware/README.md` has the bring-up sequence, ordered so that the two
-measurements that can still change the design — the real nibble→colour mapping and the
-deep-sleep current — happen first.
+**Running on the wall.** Firmware `b6811f1`, rendering in ~30 s, waking on a schedule
+and on a button, updating itself over the air.
+
+Two things from the original plan are still open, and one of them matters:
+
+- **Deep-sleep current has never been measured**, so nobody knows how long it runs on a
+  charge. It needs a µA-capable meter, not a USB power meter.
+- **OTA rollback does not work on this board** — tested, not assumed. A build that boots
+  but cannot reach the network can only be recovered over USB.
+
+Both are written up in [`docs/HARDWARE.md`](docs/HARDWARE.md), along with the things
+bring-up *did* settle. [`docs/TRAPS.md`](docs/TRAPS.md) is the list of things that cost
+a debugging session each; read it before changing the CRC, the OTA publisher, or
+anything about the ExternalSecret.
