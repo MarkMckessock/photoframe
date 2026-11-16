@@ -71,7 +71,7 @@ Exactly five things may write to the glass:
 TOPIC                                RET  QOS  DIR   PAYLOAD
 home/photoframe/availability          Y    1   dev   "online" | "asleep" | "offline" (LWT)
 home/photoframe/state                 Y    1   dev   status JSON
-home/photoframe/cmd/config            Y    1   srv   {"poll_seconds":900,"night_start":22,"night_end":7}
+home/photoframe/cmd/config            Y    1   srv   {"poll_seconds":300,"night_poll_seconds":3600,"night_start":0,"night_end":6}
 home/photoframe/cmd/ota               Y    1   srv   {"version":"1.2.0","url":"...","sha256":"..."}
 home/photoframe/cmd/clear             Y    1   srv   any changing token; forgets the stored ETag
 homeassistant/sensor/photoframe_*/config  Y  1  dev  discovery
@@ -88,7 +88,7 @@ Set the poll interval live:
 
 ```bash
 mosquitto_pub -h 10.0.70.131 -t home/photoframe/cmd/config -r \
-  -m '{"poll_seconds":300,"night_start":23,"night_end":7}'
+  -m '{"poll_seconds":300,"night_poll_seconds":3600,"night_start":0,"night_end":6}'
 ```
 
 Force a re-fetch of an image the frame thinks it already has:

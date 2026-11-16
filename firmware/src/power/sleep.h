@@ -30,6 +30,7 @@ struct IntervalInputs {
   uint8_t  consecutive_failures;
   uint16_t battery_mv;
   uint32_t configured_poll_s;
+  uint32_t night_poll_s;
   uint32_t last_image_epoch;
   uint8_t  night_start;
   uint8_t  night_end;

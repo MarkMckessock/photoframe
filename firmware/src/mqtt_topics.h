@@ -7,7 +7,7 @@
 //   TOPIC                                RET  QOS  DIR   PAYLOAD
 //   home/<dev>/availability               Y    1   dev   "online" | "asleep" | "offline" (LWT)
 //   home/<dev>/state                      Y    1   dev   status JSON, see mqtt.cpp
-//   home/<dev>/cmd/config                 Y    1   srv   {"poll_seconds":900,"night_start":22,"night_end":7}
+//   home/<dev>/cmd/config                 Y    1   srv   {"poll_seconds":300,"night_poll_seconds":3600,"night_start":0,"night_end":6}
 //   home/<dev>/cmd/ota                    Y    1   srv   {"version":"1.2.0","url":"...","sha256":"..."}
 //   home/<dev>/cmd/clear                  N    1   srv   ""  -- forget the stored ETag, refetch next wake
 //   homeassistant/sensor/<dev>_*/config   Y    1   dev   HA discovery

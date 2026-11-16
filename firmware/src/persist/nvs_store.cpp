@@ -15,6 +15,7 @@ constexpr const char* kRenderedEtag = "rendered_etag";
 constexpr const char* kRenderBusy   = "render_busy";
 constexpr const char* kRenderEtag   = "render_etag";
 constexpr const char* kPollSeconds  = "poll_s";
+constexpr const char* kNightPollS   = "night_poll_s";
 constexpr const char* kNightStart   = "night_start";
 constexpr const char* kNightEnd     = "night_end";
 constexpr const char* kOtaVersion   = "ota_version";
@@ -70,6 +71,19 @@ void set_poll_seconds(uint32_t s) {
   if (s < PF_POLL_MIN_S) s = PF_POLL_MIN_S;
   if (s > PF_POLL_MAX_S) s = PF_POLL_MAX_S;
   g_prefs.putUInt(kPollSeconds, s);
+}
+
+uint32_t night_poll_seconds() {
+  uint32_t s = g_prefs.getUInt(kNightPollS, PF_POLL_NIGHT_S);
+  if (s < PF_POLL_MIN_S) s = PF_POLL_MIN_S;
+  if (s > PF_POLL_MAX_S) s = PF_POLL_MAX_S;
+  return s;
+}
+
+void set_night_poll_seconds(uint32_t s) {
+  if (s < PF_POLL_MIN_S) s = PF_POLL_MIN_S;
+  if (s > PF_POLL_MAX_S) s = PF_POLL_MAX_S;
+  g_prefs.putUInt(kNightPollS, s);
 }
 
 uint8_t night_start() { return g_prefs.getUChar(kNightStart, PF_NIGHT_START_H); }

@@ -63,7 +63,7 @@ uint32_t next_interval_s(const IntervalInputs& in) {
   }
   if (in.battery_mv && in.battery_mv < PF_BATT_MV_WARN)      return PF_POLL_CRITICAL_S;
   if (in.battery_mv && in.battery_mv < PF_BATT_MV_RENDER_OK) return PF_POLL_LOW_BATT_S;
-  if (is_night(in.night_start, in.night_end))                return PF_POLL_NIGHT_S;
+  if (is_night(in.night_start, in.night_end))                return in.night_poll_s;
 
   // Burst mode. Photos arrive in clusters -- somebody sends one, then another ninety
   // seconds later -- so poll fast for a while after each arrival. This is what makes

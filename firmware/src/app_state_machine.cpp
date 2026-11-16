@@ -53,6 +53,7 @@ uint32_t choose_interval() {
   in.consecutive_failures = rtc.consecutive_failures;
   in.battery_mv = ctx.battery_mv;
   in.configured_poll_s = nvs::poll_seconds();
+  in.night_poll_s = nvs::night_poll_seconds();
   in.last_image_epoch = rtc.last_image_epoch;
   in.night_start = nvs::night_start();
   in.night_end = nvs::night_end();

@@ -70,6 +70,11 @@ void handle_config(const char* payload) {
     nvs::set_poll_seconds(poll);
     PF_LOGI("config: poll_seconds -> %lu", (unsigned long)nvs::poll_seconds());
   }
+  const uint32_t night_poll = doc["night_poll_seconds"] | 0U;
+  if (night_poll && night_poll != nvs::night_poll_seconds()) {
+    nvs::set_night_poll_seconds(night_poll);
+    PF_LOGI("config: night_poll_seconds -> %lu", (unsigned long)nvs::night_poll_seconds());
+  }
   if (doc["night_start"].is<uint8_t>() && doc["night_end"].is<uint8_t>()) {
     const uint8_t s = doc["night_start"], e = doc["night_end"];
     if (s != nvs::night_start() || e != nvs::night_end()) {

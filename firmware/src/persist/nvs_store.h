@@ -42,6 +42,8 @@ void set_render_etag(const char* etag);
 // Live config, set over the retained cmd/config topic.
 uint32_t poll_seconds();
 void set_poll_seconds(uint32_t s);
+uint32_t night_poll_seconds();
+void set_night_poll_seconds(uint32_t s);
 uint8_t night_start();
 uint8_t night_end();
 void set_night(uint8_t start_h, uint8_t end_h);

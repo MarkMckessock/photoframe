@@ -85,7 +85,7 @@
 #define PF_POLL_MAX_S        86400
 #define PF_POLL_BURST_S        300   // after a photo lands, poll faster for a while
 #define PF_BURST_WINDOW_S     7200   // ...for two hours. Photos arrive in clusters.
-#define PF_POLL_NIGHT_S        900
+#define PF_POLL_NIGHT_S       3600   // default; cmd/config night_poll_seconds overrides
 #define PF_POLL_LOW_BATT_S    3600
 #define PF_POLL_CRITICAL_S   43200   // 12 h, button wake still works
 // POSIX TZ string, so night mode follows local time including DST.

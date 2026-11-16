@@ -105,7 +105,7 @@ mosquitto_pub -h 10.0.70.131 -t home/photoframe/cmd/clear -r -m "$(date +%s)"
 
 # Change the poll interval live (read on next wake)
 mosquitto_pub -h 10.0.70.131 -t home/photoframe/cmd/config -r \
-  -m '{"poll_seconds":300,"night_start":23,"night_end":7}'
+  -m '{"poll_seconds":300,"night_poll_seconds":3600,"night_start":0,"night_end":6}'
 
 # See exactly what the panel should be showing
 open http://10.0.70.133/latest.png
