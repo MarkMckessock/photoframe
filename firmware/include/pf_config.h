@@ -80,18 +80,18 @@
 // ---------------------------------------------------------------------------
 // Sleep intervals, in seconds.
 // ---------------------------------------------------------------------------
-#define PF_POLL_DEFAULT_S      900   // 15 min
+#define PF_POLL_DEFAULT_S      300   // 5 min
 #define PF_POLL_MIN_S           60
 #define PF_POLL_MAX_S        86400
 #define PF_POLL_BURST_S        300   // after a photo lands, poll faster for a while
 #define PF_BURST_WINDOW_S     7200   // ...for two hours. Photos arrive in clusters.
-#define PF_POLL_NIGHT_S       3600
+#define PF_POLL_NIGHT_S        900
 #define PF_POLL_LOW_BATT_S    3600
 #define PF_POLL_CRITICAL_S   43200   // 12 h, button wake still works
 // POSIX TZ string, so night mode follows local time including DST.
 #define PF_TIMEZONE "PST8PDT,M3.2.0,M11.1.0"
-#define PF_NIGHT_START_H        22
-#define PF_NIGHT_END_H           7
+#define PF_NIGHT_START_H         0
+#define PF_NIGHT_END_H           6
 
 // Backoff ladder after consecutive failures.
 #define PF_BACKOFF_S { 300, 900, 1800, 3600 }
